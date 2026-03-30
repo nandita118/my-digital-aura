@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura | Your Digital Footprint</title>
+    <!-- Dependencies (CDNs) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;800&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #050505; color: #fff; font-family: 'Plus Jakarta Sans', sans-serif; overflow-x: hidden; }
+        .glow { position: fixed; width: 40vw; height: 40vw; border-radius: 50%; blur: 120px; z-index: -1; opacity: 0.15; }
+        .drop-area { border: 2px dashed rgba(255,255,255,0.1); transition: 0.3s; background: rgba(255,255,255,0.02); }
+        .drop-area:hover { border-color: #6366f1; background: rgba(99, 102, 241, 0.05); }
+    </style>
+</head>
+<body class="p-4 md:p-12">
+    <div class="glow top-[-10%] left-[-10%] bg-indigo-600" style="filter: blur(120px);"></div>
+    <div class="glow bottom-[-10%] right-[-10%] bg-fuchsia-600" style="filter: blur(120px);"></div>
+
+    <div class="max-w-5xl mx-auto">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-16">
+            <div class="flex items-center gap-2">
+                <div class="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-fuchsia-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-zap"><path d="M4 14.5L14 3l-2.5 9h8.5L10 21l2.5-9z"/></svg>
+                </div>
+                <h1 class="text-2xl font-extrabold tracking-tighter">AURA</h1>
+            </div>
+            <div class="text-xs font-medium text-emerald-400 bg-emerald-400/10 px-3 py-1 rounded-full border border-emerald-400/20">
+                Privacy Locked: Local Processing Only
+            </div>
+        </header>
+
+        <!-- Initial Upload State -->
+        <div id="upload-view" class="text-center py-20">
+            <h2 class="text-6xl md:text-8xl font-extrabold mb-8 tracking-tighter leading-none">Your data is<br><span class="text-indigo-500">beautiful.</span></h2>
+            <p class="text-slate-400 text-xl mb-12 max-w-xl mx-auto">Drop your YouTube watch-history.json file here to reveal your digital personality.</p>
+            
+            <label id="drop-zone" class="drop-area block max-w-xl mx-auto p-16 rounded-[2.5rem] cursor-pointer">
+                <input type="file" class="hidden" id="file-input" accept=".json">
+                <div class="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                </div>
+                <p class="font-bold">Select JSON file</p>
+            </label>
+        </div>
+
+        <!-- Dashboard View (Hidden Initially) -->
+        <div id="dashboard" class="hidden space-y-8 pb-20">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white/5 border border-white/10 p-8 rounded-[2rem]">
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">Total Videos</p>
+                    <h3 id="stat-total" class="text-5xl font-extrabold">0</h3>
+                </div>
+                <div class="bg-indigo-500/10 border border-indigo-500/20 p-8 rounded-[2rem]">
+                    <p class="text-indigo-300 text-xs font-bold uppercase tracking-widest mb-2">Your Archetype</p>
+                    <h3 id="stat-archetype" class="text-4xl font-extrabold text-indigo-400">Loading...</h3>
+                </div>
+                <div class="bg-white/5 border border-white/10 p-8 rounded-[2rem]">
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">Peak Hour</p>
+                    <h3 id="stat-peak" class="text-5xl font-extrabold">0:00</h3>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white/5 border border-white/10 p-8 rounded-[2.5rem]">
+                    <h4 class="font-bold mb-6">Daily Rhythm</h4>
+                    <canvas id="lineChart"></canvas>
+                </div>
+                <div class="bg-white/5 border border-white/10 p-8 rounded-[2.5rem]">
+                    <h4 class="font-bold mb-6">Top Channels</h4>
+                    <canvas id="doughnutChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('file-input');
+        const uploadView = document.getElementById('upload-view');
+        const dashboard = document.getElementById('dashboard');
+
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const data = JSON.parse(event.target.result);
+                process(data);
+                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                uploadView.classList.add('hidden');
+                dashboard.classList.remove('hidden');
+            };
+            reader.readAsText(file);
+        };
+
+        function process(raw) {
+            const hours = new Array(24).fill(0);
+            const channels = {};
+            
+            raw.forEach(item => {
+                const date = new Date(item.time);
+                hours[date.getHours()]++;
+                if (item.subtitles?.[0]) {
+                    channels[item.subtitles[0].name] = (channels[item.subtitles[0].name] || 0) + 1;
+                }
+            });
+
+            document.getElementById('stat-total').innerText = raw.length.toLocaleString();
+            const peakHour = hours.indexOf(Math.max(...hours));
+            document.getElementById('stat-peak').innerText = `${peakHour}:00`;
+            
+            // Archetype logic
+            let type = "The Explorer";
+            if (peakHour > 22 || peakHour < 4) type = "Night Owl";
+            if (raw.length > 10000) type = "Super User";
+            document.getElementById('stat-archetype').innerText = type;
+
+            renderCharts(hours, channels);
+        }
+
+        function renderCharts(hourData, channelData) {
+            new Chart(document.getElementById('lineChart'), {
+                type: 'line',
+                data: {
+                    labels: hourData.map((_, i) => `${i}:00`),
+                    datasets: [{ label: 'Views', data: hourData, borderColor: '#6366f1', tension: 0.4, fill: true, backgroundColor: 'rgba(99, 102, 241, 0.1)' }]
+                },
+                options: { plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { color: '#64748b' } } } }
+            });
+
+            const top5 = Object.entries(channelData).sort((a,b) => b[1]-a[1]).slice(0, 5);
+            new Chart(document.getElementById('doughnutChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: top5.map(c => c[0]),
+                    datasets: [{ data: top5.map(c => c[1]), backgroundColor: ['#6366f1', '#a855f7', '#ec4899', '#f43f5e', '#fbbf24'], borderWidth: 0 }]
+                },
+                options: { plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 20 } } } }
+            });
+        }
+    </script>
+</body>
+</html>
